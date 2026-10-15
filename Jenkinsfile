@@ -29,20 +29,15 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([string(credentialsId: 'k8s-config', variable: 'KUBECONFIG_CONTENT')]) {
-                    script {
-                        // Writes the configuration content directly into a workspace config file
-                        writeFile file: 'kubeconfig.yaml', text: KUBECONFIG_CONTENT
-                        
-                        // Clean, fail-proof native Jenkins powershell engine execution
-                        powershell """
-                            (Get-Content deployment.yaml) -replace 'image: .*', "image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}" | Set-Content deployment.yaml
-                        """
-                        
-                        // Executes the deployment manifests on your local cluster context
-                        bat "kubectl apply -f deployment.yaml --kubeconfig=kubeconfig.yaml"
-                        bat "kubectl rollout status deployment/university-portal-deployment --kubeconfig=kubeconfig.yaml"
-                    }
+                script {
+                    // Fail-proof native Jenkins powershell engine execution to update the image tag
+                    powershell """
+                        (Get-Content deployment.yaml) -replace 'image: .*', "image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}" | Set-Content deployment.yaml
+                    """
+                    
+                    // Directly references your local system cluster configuration path explicitly
+                    bat "kubectl apply -f deployment.yaml --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                    bat "kubectl rollout status deployment/university-portal-deployment --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
                 }
             }
         }
@@ -50,12 +45,9 @@ pipeline {
     
     post {
         failure {
-            withCredentials([string(credentialsId: 'k8s-config', variable: 'KUBECONFIG_CONTENT')]) {
-                script {
-                    echo "Deployment unhealthy! Reverting to the last working application tag..."
-                    writeFile file: 'kubeconfig.yaml', text: KUBECONFIG_CONTENT
-                    bat "kubectl rollout undo deployment/university-portal-deployment --kubeconfig=kubeconfig.yaml"
-                }
+            script {
+                echo "Deployment unhealthy! Reverting to the last working application tag..."
+                bat "kubectl rollout undo deployment/university-portal-deployment --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
             }
         }
     }
