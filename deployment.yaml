@@ -19,7 +19,8 @@ spec:
       containers:
       - name: portal-container
         # Replace 'yourdockerhubusername' with your actual Docker Hub username
-        image: yourdockerhubusername/university-lms-portal:latest
+    image: asihf/university-lms-portal:broken-tag
+
         ports:
         - containerPort: 80
         imagePullPolicy: Always
