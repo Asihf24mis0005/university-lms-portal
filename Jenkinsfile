@@ -8,11 +8,7 @@ pipeline {
     }
     
     stages {
-        stage('Clone Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com'
-            }
-        }
+        // Redundant clone stage has been removed. Jenkins automatically manages SCM checkouts.
         
         stage('Build Docker Image') {
             steps {
@@ -35,11 +31,18 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'k8s-config', variable: 'KUBECONFIG')]) {
+                // Using 'string' explicitly maps your Secret Text credential to runtime memory
+                withCredentials([string(credentialsId: 'k8s-config', variable: 'KUBECONFIG_CONTENT')]) {
                     script {
+                        // Writes the configuration content directly into a workspace config file
+                        writeFile file: 'kubeconfig.yaml', text: KUBECONFIG_CONTENT
+                        
+                        // Updates the deployment tag to match this current build number
                         sh "sed -i 's|image: .*|image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}|g' deployment.yaml"
-                        sh "kubectl apply -f deployment.yaml --kubeconfig=\${KUBECONFIG}"
-                        sh "kubectl rollout status deployment/university-portal-deployment --kubeconfig=\${KUBECONFIG}"
+                        
+                        // Executes the deployment manifests on your local cluster context
+                        sh "kubectl apply -f deployment.yaml --kubeconfig=kubeconfig.yaml"
+                        sh "kubectl rollout status deployment/university-portal-deployment --kubeconfig=kubeconfig.yaml"
                     }
                 }
             }
@@ -48,10 +51,11 @@ pipeline {
     
     post {
         failure {
-            withCredentials([file(credentialsId: 'k8s-config', variable: 'KUBECONFIG')]) {
+            withCredentials([string(credentialsId: 'k8s-config', variable: 'KUBECONFIG_CONTENT')]) {
                 script {
-                    echo "Deployment failed! Initiating automatic rollback to the last stable release..."
-                    sh "kubectl rollout undo deployment/university-portal-deployment --kubeconfig=\${KUBECONFIG}"
+                    echo "Deployment unhealthy! Reverting to the last working application tag..."
+                    writeFile file: 'kubeconfig.yaml', text: KUBECONFIG_CONTENT
+                    sh "kubectl rollout undo deployment/university-portal-deployment --kubeconfig=kubeconfig.yaml"
                 }
             }
         }
