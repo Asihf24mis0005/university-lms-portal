@@ -35,9 +35,11 @@ pipeline {
                         (Get-Content deployment.yaml) -replace 'image: .*', "image: ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}" | Set-Content deployment.yaml
                     """
                     
-                    // Directly references your local system cluster configuration path explicitly
-                    bat "kubectl apply -f deployment.yaml --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
-                    bat "kubectl rollout status deployment/university-portal-deployment --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                    // Runs the deployment inside your desktop profile session using the native powershell block
+                    powershell """
+                        kubectl apply -f deployment.yaml --kubeconfig="C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                        kubectl rollout status deployment/university-portal-deployment --kubeconfig="C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                    """
                 }
             }
         }
@@ -47,8 +49,11 @@ pipeline {
         failure {
             script {
                 echo "Deployment unhealthy! Reverting to the last working application tag..."
-                bat "kubectl rollout undo deployment/university-portal-deployment --kubeconfig=C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                powershell """
+                    kubectl rollout undo deployment/university-portal-deployment --kubeconfig="C:\\Users\\batch1.VITUNIVERSITY\\.kube\\config"
+                """
             }
         }
     }
 }
+
